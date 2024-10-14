@@ -188,7 +188,10 @@ static NSMutableArray<DIKWeakContainer *> *gWeakStarContainers = nil;
         };
         return %orig(arg1, arg2, [newProperties mutableCopy], arg4, arg5);
     }
-    if ([arg2 hasSuffix:@"_PortraitChoco_iPhone-Pinyin10-Keyboard_Pinyin-Plane"] || [arg2 hasSuffix:@"_PortraitTruffle_iPhone-Pinyin10-Keyboard_Pinyin-Plane"]) {
+    if ([arg2 hasSuffix:@"_PortraitChoco_iPhone-Pinyin10-Keyboard_Pinyin-Plane"] || 
+        [arg2 hasSuffix:@"_PortraitTruffle_iPhone-Pinyin10-Keyboard_Pinyin-Plane"] ||
+        [arg2 hasSuffix:@"_Caymen_iPhone-Pinyin10-Keyboard_Pinyin-Plane"]
+    ) {
         NSMutableDictionary *newProperties = [arg3 mutableCopy];
         [newProperties addEntriesFromDictionary:@{
             @"shift-alternate": @"numbers-and-punctuation-plane",

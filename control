@@ -1,0 +1,9 @@
+Package: com.82flex.dictationinkeyboard
+Name: DictationInKeyboard
+Version: 0.1
+Architecture: iphoneos-arm
+Description: An awesome MobileSubstrate tweak!
+Maintainer: 82Flex <82flex@gmail.com>
+Author: 82Flex <82flex@gmail.com>
+Section: Tweaks
+Depends: mobilesubstrate

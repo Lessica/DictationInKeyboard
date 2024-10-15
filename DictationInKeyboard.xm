@@ -37,17 +37,30 @@ static BOOL USE_SWITCH_CONTROL = YES;
 @interface UIInputSwitcherView : UIView
 @end
 
+@interface UIKBTree : NSObject
+@property (nonatomic, copy) NSString *name;
+@property (nonatomic, strong) NSMutableDictionary *properties;
+@end
+
 @interface UIKeyboardLayoutStar : NSObject
 @property (nonatomic, strong) NSNumber *dik_needsReloadKeyplane;
+@property (nonatomic, strong) UIKBTree *activeKey;
+- (UIKBTree *)currentKeyplane;
 - (void)refreshForDictationAvailablityDidChange;
 - (void)reloadCurrentKeyplane;
 - (void)dik_setNeedsReloadKeyplane;
 - (void)upActionShift;
 @end
 
-@interface UIKBTree : NSObject
-@property (nonatomic, copy) NSString *name;
-@property (nonatomic, strong) NSMutableDictionary *properties; 
+@interface UIKBTextStyle : NSObject
+@property (assign, nonatomic) double fontSize;
+@property (assign, nonatomic) double kerning;
+@end
+
+@interface UIKBRenderTraits : NSObject
+@property (nonatomic, strong) UIKBTextStyle *symbolStyle;
+@property (nonatomic, strong) UIKBTextStyle *fallbackSymbolStyle;
+@property (nonatomic, strong) NSArray<UIKBTextStyle *> *secondarySymbolStyles;
 @end
 
 @interface DIKWeakContainer : NSObject
@@ -88,7 +101,7 @@ static NSMutableArray<DIKWeakContainer *> *gWeakStarContainers = nil;
 
 - (void)downActionShiftWithKey:(UIKBTree *)arg1 {
     %orig;
-    if ([arg1.name isEqualToString:@"TenKey-Chinese-Facemark"]) {
+    if ([arg1.name isEqualToString:@"DIK-TenKey-Chinese-Facemark"]) {
         [self upActionShift];
     }
 }
@@ -134,6 +147,11 @@ static NSMutableArray<DIKWeakContainer *> *gWeakStarContainers = nil;
 - (void)_reloadInputSwitcherItems {
     %orig;
 
+    BOOL isForDictation = MSHookIvar<BOOL>(self, "m_isForDictation");
+    if (isForDictation) {
+        return;
+    }
+
     NSArray *items = MSHookIvar<NSArray *>(self, "m_inputSwitcherItems");
     NSMutableArray *newItems = [NSMutableArray arrayWithArray:items];
 
@@ -142,7 +160,7 @@ static NSMutableArray<DIKWeakContainer *> *gWeakStarContainers = nil;
     if (USE_SWITCH_CONTROL) {
         NSBundle *keyboardBundle = [NSBundle bundleWithPath:@"/System/Library/PreferenceBundles/KeyboardSettings.bundle"];
         NSString *title = [keyboardBundle localizedStringForKey:@"DICTATION" value:nil table:@"Keyboard"];
-        [item setLocalizedTitle:title];
+        [item setLocalizedTitle:title ?: @"启用听写"];
 
         UISwitch *switchControl = [[UISwitch alloc] init];
         [item setSwitchControl:switchControl];
@@ -177,28 +195,49 @@ static NSMutableArray<DIKWeakContainer *> *gWeakStarContainers = nil;
 
 %hook UIKBTree
 
-- (id)initWithType:(int)arg1 withName:(NSString *)arg2 withProperties:(id)arg3 withSubtrees:(id)arg4 withCache:(id)arg5 {
-    HBLogWarn(@"UIKBTree initWithType:%d withName:%@ withProperties:%@ withSubtrees:%@ withCache:%@", arg1, arg2, arg3, arg4, arg5);
-    if ([arg2 isEqualToString:@"TenKey-Chinese-Facemark"]) {
-        NSDictionary *newProperties = @{
+- (id)initWithType:(int)arg1 withName:(NSString *)name withProperties:(id)props withSubtrees:(id)arg4 withCache:(id)arg5 {
+    if ([name isEqualToString:@"TenKey-Chinese-Facemark"]) {
+        NSMutableDictionary *newProperties = [props mutableCopy];
+        [newProperties addEntriesFromDictionary:@{
             @"KBdisplayString": @"#+=",
             @"KBdisplayType": @18,
             @"KBinteractionType": @14,
             @"KBrepresentedString": @"Shift",
-        };
-        return %orig(arg1, arg2, [newProperties mutableCopy], arg4, arg5);
+        }];
+        [newProperties removeObjectForKey:@"KBlocalizationKey"];
+        return %orig(arg1, @"DIK-TenKey-Chinese-Facemark", newProperties, arg4, arg5);
     }
-    if ([arg2 hasSuffix:@"_PortraitChoco_iPhone-Pinyin10-Keyboard_Pinyin-Plane"] || 
-        [arg2 hasSuffix:@"_PortraitTruffle_iPhone-Pinyin10-Keyboard_Pinyin-Plane"] ||
-        [arg2 hasSuffix:@"_Caymen_iPhone-Pinyin10-Keyboard_Pinyin-Plane"]
-    ) {
-        NSMutableDictionary *newProperties = [arg3 mutableCopy];
+    if ([name isEqualToString:@"TenKey-Roman-Switch-Key"]) {
+        return %orig(arg1, @"DIK-TenKey-Roman-Switch-Key", props, arg4, arg5);
+    }
+    if ([name hasSuffix:@"_iPhone-Pinyin10-Keyboard_Pinyin-Plane"]) {
+        NSMutableDictionary *newProperties = [props mutableCopy];
         [newProperties addEntriesFromDictionary:@{
             @"shift-alternate": @"numbers-and-punctuation-plane",
         }];
-        return %orig(arg1, arg2, newProperties, arg4, arg5);
+        return %orig(arg1, name, newProperties, arg4, arg5);
     }
+    HBLogWarn(@"%@ properties: %@", name, props);
     return %orig;
+}
+
+%end
+
+%hook UIKBRenderFactory10Key_Round
+
+- (UIKBRenderTraits *)_traitsForKey:(UIKBTree *)key onKeyplane:(UIKBTree *)plane {
+    UIKBRenderTraits *traits = %orig;
+    if ([key.name isEqualToString:@"DIK-TenKey-Chinese-Facemark"]) {
+        traits.symbolStyle.fontSize = 16.0;
+        traits.symbolStyle.kerning = 0;
+        traits.fallbackSymbolStyle.fontSize = 16.0;
+        traits.fallbackSymbolStyle.kerning = 0;
+        for (UIKBTextStyle *style in traits.secondarySymbolStyles) {
+            style.fontSize = 16.0;
+            style.kerning = 0;
+        }
+    }
+    return traits;
 }
 
 %end
